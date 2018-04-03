@@ -1,0 +1,1 @@
+Used to predict time series trend using ANN and Elliot Wave Theory 
