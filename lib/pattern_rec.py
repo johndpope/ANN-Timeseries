@@ -37,7 +37,7 @@ change_lr = LearningRateScheduler(scheduler)
 
 
 #fitting the ANN to the training set
-label= np.array(range(0,12))
+label= np.array(range(0,1))
 classifier.fit(X_train,label,1,7000,2,callbacks=[change_lr])
 
 #predicting the test set results
