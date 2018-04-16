@@ -10,7 +10,7 @@ value.plot(x='openTime',y='close')
 
 # value['x'] = pd.to_datetime(value['openTime'])
 
-# plt.plot(value['x'], value['close'])
+# plt.plot(value['x'], float(value['close']))
 # plt.show()
 # plt.scatter(values['openTime'], values['close'])
 # plt.show()
