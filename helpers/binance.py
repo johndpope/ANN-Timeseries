@@ -5,6 +5,7 @@ from helpers import helper
 URL = 'https://api.binance.com/api/v1/klines'
 
 # Use proxy if needed
+https_proxy = { "https": "http://xq66:1qaz%23EDC@xdcwsa.central.piraeusgroup.gr:8080"}
 
 
 # Get Candle values from Binance
