@@ -5,37 +5,90 @@ import numpy as np
 
 
 def createTrainingData(limit):
-    values = binance.getCandleSticks("BTCUSDT","1h",limit=limit)
+    values = binance.getCandleSticks("BTCUSDT","4h",limit=limit)
     # values['ema'] = values["close"].ewm(span=limit, adjust=False).mean()
     values['close'] = values['close'].astype('float64')
     values['openTime'] = pd.to_datetime(values['openTime'])
     return values['close']
 
 
+
+def create_dataset(dataset, look_back=1):
+    dataX, dataY = [], []
+    for i in range(len(dataset)-look_back-1):
+        a = dataset[i:(i+look_back), 0]
+        dataX.append(a)
+        dataY.append(dataset[i + look_back, 0])
+    return np.array(dataX), np.array(dataY)
+
+
 def trainNetwork():
 
-    data = createTrainingData(100)
-    n = 100
 
-    # split the data 80% training 20% testing
-    train_start = 0
-    train_end = int(np.floor(0.8*n))
-    test_start = train_end
-    test_end = n
-    data_train = data[np.arange(train_start, train_end)]
-    data_test = data[np.arange(test_start, test_end)]
+    import numpy as np
+    import pandas as pd
+    import matplotlib.pyplot as plt
+    import math
 
-    # Scale Data
+    from sklearn.preprocessing import MinMaxScaler
+    from sklearn.metrics import mean_squared_error
+
+    from keras.models import Sequential
+    from keras.layers import Dense
+    from keras.layers import LSTM
+
+    data = createTrainingData(200)
+    dataset = data.values
+    dataset = dataset.astype('float32')
+    
+
     from sklearn.preprocessing import MinMaxScaler
     scaler = MinMaxScaler()
-    scaler.fit(data_train)
-    data_train = scaler.transform(data_train)
-    data_test = scaler.transform(data_test)
+    dataset = dataset.reshape(-1,1)
+    dataset = scaler.fit_transform(dataset)
+    
+    train_size = int(len(dataset) * 0.60)
+    test_size = len(dataset) - train_size
 
-    # build X and y
-    X_train = data_train[:, 1:]
-    y_train = data_train[:, 0]
-    X_test = data_train [:, 1:]
-    y_test = data_test[:, 0]
+    train, test = dataset[0:train_size, :], dataset[train_size:len(dataset), :]
 
+    look_back = 2
+    trainX, trainY = create_dataset(train, look_back=look_back)
+    testX, testY = create_dataset(test, look_back=look_back)
 
+    trainX = np.reshape(trainX, (trainX.shape[0], 1, trainX.shape[1]))
+    testX = np.reshape(testX, (testX.shape[0], 1, testX.shape[1]))
+
+    model = Sequential()
+    model.add(LSTM(4, input_shape=(1, look_back)))
+    model.add(Dense(1))
+    model.compile(loss='mean_squared_error', optimizer='adam')
+    model.fit(trainX, trainY, epochs=100, batch_size=256, verbose=2)
+ 
+    trainPredict = model.predict(trainX)
+    testPredict = model.predict(testX)
+    trainPredict = scaler.inverse_transform(trainPredict)
+    trainY = scaler.inverse_transform([trainY])
+    testPredict = scaler.inverse_transform(testPredict)
+    testY = scaler.inverse_transform([testY])
+
+    trainScore = math.sqrt(mean_squared_error(trainY[0], trainPredict[:, 0]))
+    print('Train Score: %.2f RMSE' % (trainScore))
+    testScore = math.sqrt(mean_squared_error(testY[0], testPredict[:, 0]))
+    print('Test Score: %.2f RMSE' % (testScore))
+
+    # shift train predictions for plotting
+    trainPredictPlot = np.empty_like(dataset)
+    trainPredictPlot[:, :] = np.nan
+    trainPredictPlot[look_back:len(trainPredict) + look_back, :] = trainPredict
+
+     # shift test predictions for plotting
+    testPredictPlot = np.empty_like(dataset)
+    testPredictPlot[:, :] = np.nan
+    testPredictPlot[len(trainPredict) + (look_back * 2) + 1:len(dataset) - 1, :] = testPredict
+
+    plt.plot(data, label='Actual')
+    plt.plot(pd.DataFrame(trainPredictPlot, columns=["close"], index=data.index).close, label='Training')
+    plt.plot(pd.DataFrame(testPredictPlot, columns=["close"], index=data.index).close, label='Testing')
+    plt.legend(loc='best')
+    plt.show()
